@@ -1,0 +1,1016 @@
+clear all; clc;
+
+%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 1 %%%%%%%%%%%%%%%%%%%
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m1=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m2=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+m3=zeros(s,size(3,1));                      % (Sx2) vector to save KS estimates     
+m4=zeros(s,size(3,1));                      % (Sx2) vector to save Chi estimates
+m5=zeros(s,size(3,1));                      % (Sx2) vector to save Spearman estimates      
+for i=1:s                                   % start loop  
+
+p = 1;                                      % # correlation
+Stdr= 1.3;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL
+    
+     % GENERATE DATA
+     Covmat=[Stdr.^2 p*Stdr*Stdh;p*Stdr*Stdh Stdh.^2];
+     
+     X=mvnrnd([0 0],Covmat,n);
+     RPL=X(:,1);
+     HPL=X(:,2);
+     UPL=RPL-HPL;
+
+     % ESTIMATION 2016 Test metrics
+     uU=arrayfun(@(i) mean(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     uH=arrayfun(@(i) mean(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     VU=arrayfun(@(i) var(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     VH=arrayfun(@(i) var(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     
+     meantest=abs(uU./sqrt(VH));
+     vartest=VU./VH;
+     
+     FailM=sum(meantest>=0.1);
+     FailV=sum(vartest>=0.2);
+    
+   
+     Fail1= sum(meantest(:)>=.1 & vartest(:)>=.2);
+     if Fail1 >4
+         A=1;
+     else A=0;
+     end 
+     
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);
+     Sp= corr(RPL,HPL,'Type','Spearman');   
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+          
+     % STORE ESTIMATES IN mx
+     m1(i,:)=[hi];
+     m2(i,:)=[FailM];
+     m3(i,:)=[KS];
+     m4(i,:)=[FailV];
+     m5(i,:)=[Sp];
+end 
+
+%% 
+%Calculate probability of failure
+
+% 2016: Meantest + Vartest
+for i = 1:s
+    rowM=m2(i,:);
+    rowV=m4(i,:);
+     if rowM >= 4 || rowV >= 4
+         GL(i,:)=1;
+     else GL(i,:)=0;
+     end
+end
+
+ UdfaldGL=tabulate(GL);
+
+ 
+% Udfald SP + KS
+for i = 1:s
+     if m5(i,:) >= 0.75 && m3(i,:)<=0.095
+         SK(i,:)=0;
+     else SK(i,:)=1;
+     end
+end
+
+UdfaldKS=tabulate(SK);  % 2018: Spearman + KS
+
+
+% Udfald SP + Chi
+for i = 1:s
+     if m5(i,:) >= .75 && m1(i,:)==0
+         SC(i,:)=0;
+     else SC(i,:)=1;
+     end
+end
+
+UdfaldCHI=tabulate(SC);  % 2018: Spearman + Chi
+
+%%
+%%%%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 2 %%%%%%%%%%%%%%%%%%%%%%
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m6=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m7=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+m8=zeros(s,size(3,1));                      % (Sx2) vector to save KS estimates     
+m9=zeros(s,size(3,1));                      % (Sx2) vector to save Chi estimates
+m10=zeros(s,size(3,1));                      % (Sx2) vector to save Spearman estimates      
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+Stdr= 1;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL
+b=0.001;
+hedge=1;    
+
+     % GENERATE DATA
+     Covmat=[Stdr.^2 p*Stdr*Stdh;p*Stdr*Stdh Stdh.^2];
+     
+     F=mvnrnd([0 0],Covmat,n);
+     e=mvnrnd([0 0], [1 0; 0 1],n);
+     Yl=F-b*e;
+     PnL=F-hedge*Yl;
+     RPL=PnL(:,1);
+     HPL=PnL(:,2);
+     UPL=RPL-HPL;
+
+     % ESTIMATION 2016 Test metrics
+     uU=arrayfun(@(i) mean(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     uH=arrayfun(@(i) mean(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     VU=arrayfun(@(i) var(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     VH=arrayfun(@(i) var(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     
+     meantest=abs(uU./sqrt(VH));
+     vartest=VU./VH;
+     
+     FailM=sum(meantest>=0.1);
+     FailV=sum(vartest>=0.2);
+    
+   
+     Fail1= sum(meantest(:)>=.1 & vartest(:)>=.2);
+     if Fail1 >4
+         A=1;
+     else A=0;
+     end 
+     
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);
+     Sp= corr(RPL,HPL,'Type','Spearman');   
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+          
+     % STORE ESTIMATES IN mx
+     m6(i,:)=[hi];
+     m7(i,:)=[FailM];
+     m8(i,:)=[KS];
+     m9(i,:)=[FailV];
+     m10(i,:)=[Sp];
+end 
+
+%%
+%Calculate probability of failure
+
+% 2016: Meantest + Vartest
+for i = 1:s
+    rowM=m7(i,:);
+    rowV=m9(i,:);
+     if rowM >= 4 || rowV >= 4
+         GL(i,:)=1;
+     else GL(i,:)=0;
+     end
+end
+
+ UdfaldGL=tabulate(GL);
+
+ 
+% Udfald SP + KS
+for i = 1:s
+     if m10(i,:) >= 0.75 && m8(i,:)<=0.095
+         SK(i,:)=0;
+     else SK(i,:)=1;
+     end
+end
+
+UdfaldKS=tabulate(SK);  % 2018: Spearman + KS
+
+
+% Udfald SP + Chi
+for i = 1:s
+     if m10(i,:) >= .75 && m6(i,:)==0
+         SC(i,:)=0;
+     else SC(i,:)=1;
+     end
+end
+
+UdfaldCHI=tabulate(SC);  % 2018: Spearman + Chi
+
+%%
+%%%%%%%%%%%% ANALYSESPØRGSMÅL 3 %%%%%%%%%%%
+
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m11=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m12=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+     
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+Stdr= 1;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL  
+u=0.45;
+     % GENERATE DATA
+     Covmat=[Stdr.^2 p*Stdr*Stdh;p*Stdr*Stdh Stdh.^2];
+     
+     XX=mvnrnd([0 0],Covmat,n);
+     RPL=XX(:,1)+u;
+     HPL=XX(:,2);
+     UPL=RPL-HPL;
+   
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);  
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+          
+     % STORE ESTIMATES IN mx
+     m11(i,:)=[hi];
+     m12(i,:)=[KS];
+     
+end 
+
+%%
+%Calculate probability of failure
+ 
+% Udfald SP + KS
+for i = 1:s
+     if m12(i,:)<=0.095
+         SK1(i,:)=0;
+     else SK1(i,:)=1;
+     end
+end
+
+UdfaldKS=tabulate(SK1);  % 2018: Spearman + KS
+
+
+% Udfald SP + Chi
+for i = 1:s
+     if  m11(i,:)==0
+         SC1(i,:)=0;
+     else SC1(i,:)=1;
+     end
+end
+
+UdfaldCHI=tabulate(SC1);  % 2018: Spearman + Chi
+
+%% Power Function
+
+my=0.2
+Obs=252
+alpha=0.2
+%Student-T
+TKS=tinv(1-alpha/2,Obs-1);
+PwKS=nctcdf(-TKS,Obs-1,my/sqrt(1/Obs))+(1-nctcdf(TKS,Obs-1,my/sqrt(1/Obs)));
+
+%%
+%%%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 4 %%%%%%%%%%%%%%%%%%%%%%
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m11=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m12=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+     
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+Stdr= 1.75;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL 
+u=0;
+
+
+     % GENERATE DATA
+     Covmat=[Stdr.^2 p*Stdr*Stdh;p*Stdr*Stdh Stdh.^2];
+     
+     XX=mvnrnd([0 0],Covmat,n);
+     RPL=XX(:,1)+u;
+     HPL=XX(:,2);
+     
+   
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);  
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+     [hii,pii,Ci]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.00050);
+     [hiii,piii,Cii]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.000200435);
+          
+     % STORE ESTIMATES IN mx
+     m13(i,:)=[hi];
+     m14(i,:)=[KS];
+     m15(i,:)=[p];
+     m16(i,:)=[pi];
+     m19(i,:)=[hii];
+     m20(i,:)=[hiii];
+     
+end 
+
+%%
+%Calculate probability of failure
+ 
+% Udfald KS a=0.2
+for i = 1:s
+     if m14(i,:)<=0.095
+         SK1(i,:)=0;
+     else SK1(i,:)=1;
+     end
+end
+
+% Udfald KS a=0.1
+for i = 1:s
+     if m14(i,:)<=0.108686
+         SK2(i,:)=0;
+     else SK2(i,:)=1;
+     end
+end
+
+% Udfald KS a=0.05
+for i = 1:s
+     if m14(i,:)<=0.121158
+         SK3(i,:)=0;
+     else SK3(i,:)=1;
+     end
+end
+
+UdfaldKS1=tabulate(SK1);  % 2018: Spearman + KS
+UdfaldKS2=tabulate(SK2);  % 2018: Spearman + KS
+UdfaldKS3=tabulate(SK3);  % 2018: Spearman + KS
+
+% Chi kritisk værdi=18
+for i = 1:s
+     if  m13(i,:)==0
+         SC1(i,:)=0;
+     else SC1(i,:)=1;
+     end
+end
+% Chi kritisk værdi=20
+for i = 1:s
+     if  m19(i,:)==0
+         SC2(i,:)=0;
+     else SC2(i,:)=1;
+     end
+end
+% Chi kritisk værdi=22
+for i = 1:s
+     if  m20(i,:)==0
+         SC3(i,:)=0;
+     else SC3(i,:)=1;
+     end
+end
+
+UdfaldCHI1=tabulate(SC1);  % 2018: Spearman + Chi
+UdfaldCHI2=tabulate(SC2);
+UdfaldCHI3=tabulate(SC3);
+
+%% ROBUSTHEDSTEST - FORDELINGSANTAGELSEN
+
+clear all; clc;
+
+%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 1 %%%%%%%%%%%%%%%%%%%
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m1=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m2=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+m3=zeros(s,size(3,1));                      % (Sx2) vector to save KS estimates     
+m4=zeros(s,size(3,1));                      % (Sx2) vector to save Chi estimates
+m5=zeros(s,size(3,1));                      % (Sx2) vector to save Spearman estimates      
+for i=1:s                                   % start loop  
+
+p = 0.7;                                      % # correlation
+Stdr= 1.3;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL
+    
+     % GENERATE DATA
+     Covmat=[Stdr.^2 p*Stdr*Stdh;p*Stdr*Stdh Stdh.^2];
+     
+     X=exp(mvnrnd([0 0],Covmat,n));
+     RPL=X(:,1);
+     HPL=X(:,2);
+     UPL=RPL-HPL;
+
+     % ESTIMATION 2016 Test metrics
+     uU=arrayfun(@(i) mean(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     uH=arrayfun(@(i) mean(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     VU=arrayfun(@(i) var(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     VH=arrayfun(@(i) var(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     
+     meantest=abs(uU./sqrt(VH));
+     vartest=VU./VH;
+     
+     FailM=sum(meantest>=0.1);
+     FailV=sum(vartest>=0.2);
+    
+   
+     Fail1= sum(meantest(:)>=.1 & vartest(:)>=.2);
+     if Fail1 >4
+         A=1;
+     else A=0;
+     end 
+     
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);
+     Sp= corr(RPL,HPL,'Type','Spearman');   
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+          
+     % STORE ESTIMATES IN mx
+     m1(i,:)=[hi];
+     m2(i,:)=[FailM];
+     m3(i,:)=[KS];
+     m4(i,:)=[FailV];
+     m5(i,:)=[Sp];
+end 
+
+%Calculate probability of failure
+
+% 2016: Meantest + Vartest
+for i = 1:s
+    rowM=m2(i,:);
+    rowV=m4(i,:);
+     if rowM >= 4 || rowV >= 4
+         GL(i,:)=1;
+     else GL(i,:)=0;
+     end
+end
+
+ UdfaldGL=tabulate(GL);
+
+ 
+% Udfald SP + KS
+for i = 1:s
+     if m5(i,:) >= 0.75 && m3(i,:)<=0.095
+         SK(i,:)=0;
+     else SK(i,:)=1;
+     end
+end
+
+UdfaldKS=tabulate(SK);  % 2018: Spearman + KS
+
+
+% Udfald SP + Chi
+for i = 1:s
+     if m5(i,:) >= .75 && m1(i,:)==0
+         SC(i,:)=0;
+     else SC(i,:)=1;
+     end
+end
+
+UdfaldCHI=tabulate(SC);  % 2018: Spearman + Chi
+
+%% 
+%%%%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 2 %%%%%%%%%%%%%%%%%%%%%%
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m6=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m7=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+m8=zeros(s,size(3,1));                      % (Sx2) vector to save KS estimates     
+m9=zeros(s,size(3,1));                      % (Sx2) vector to save Chi estimates
+m10=zeros(s,size(3,1));                      % (Sx2) vector to save Spearman estimates      
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+Stdr= 1;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL
+b=0.5;
+hedge=.8;    
+
+     % GENERATE DATA
+     Covmat=[Stdr.^2 p*Stdr*Stdh;p*Stdr*Stdh Stdh.^2];
+     
+     F=exp(mvnrnd([0 0],Covmat,n));
+     e=mvnrnd([0 0], [1 0; 0 1],n);
+     Yl=F-b*e;
+     PnL=F-hedge*Yl;
+     RPL=PnL(:,1);
+     HPL=PnL(:,2);
+     UPL=RPL-HPL;
+
+     % ESTIMATION 2016 Test metrics
+     uU=arrayfun(@(i) mean(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     uH=arrayfun(@(i) mean(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     VU=arrayfun(@(i) var(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     VH=arrayfun(@(i) var(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     
+     meantest=abs(uU./sqrt(VH));
+     vartest=VU./VH;
+     
+     FailM=sum(meantest>=0.1);
+     FailV=sum(vartest>=0.2);
+    
+   
+     Fail1= sum(meantest(:)>=.1 & vartest(:)>=.2);
+     if Fail1 >4
+         A=1;
+     else A=0;
+     end 
+     
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);
+     Sp= corr(RPL,HPL,'Type','Spearman');   
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+          
+     % STORE ESTIMATES IN mx
+     m6(i,:)=[hi];
+     m7(i,:)=[FailM];
+     m8(i,:)=[KS];
+     m9(i,:)=[FailV];
+     m10(i,:)=[Sp];
+end 
+
+%Calculate probability of failure
+
+% 2016: Meantest + Vartest
+for i = 1:s
+    rowM=m7(i,:);
+    rowV=m9(i,:);
+     if rowM >= 4 || rowV >= 4
+         GL(i,:)=1;
+     else GL(i,:)=0;
+     end
+end
+
+ UdfaldGL=tabulate(GL);
+
+ 
+% Udfald SP + KS
+for i = 1:s
+     if m10(i,:) >= 0.75 && m8(i,:)<=0.095
+         SK(i,:)=0;
+     else SK(i,:)=1;
+     end
+end
+
+UdfaldKS=tabulate(SK);  % 2018: Spearman + KS
+
+
+% Udfald SP + Chi
+for i = 1:s
+     if m10(i,:) >= .75 && m6(i,:)==0
+         SC(i,:)=0;
+     else SC(i,:)=1;
+     end
+end
+
+UdfaldCHI=tabulate(SC);  % 2018: Spearman + Chi
+
+
+%% 
+%%%%%%%%%%%% ANALYSESPØRGSMÅL 3 %%%%%%%%%%%
+
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m11=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m12=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+     
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+Stdr= 1;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL  
+u=0.3;
+     % GENERATE DATA
+     Covmat=[Stdr.^2 p*Stdr*Stdh;p*Stdr*Stdh Stdh.^2];
+     
+     XX=exp(mvnrnd([0 0],Covmat,n));
+     RPL=XX(:,1)+u;
+     HPL=XX(:,2);
+     UPL=RPL-HPL;
+   
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);  
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+          
+     % STORE ESTIMATES IN mx
+     m11(i,:)=[hi];
+     m12(i,:)=[KS];
+     
+end 
+
+%Calculate probability of failure
+ 
+% Udfald SP + KS
+for i = 1:s
+     if m12(i,:)<=0.095
+         SK1(i,:)=0;
+     else SK1(i,:)=1;
+     end
+end
+
+UdfaldKS=tabulate(SK1);  % 2018: Spearman + KS
+
+
+% Udfald SP + Chi
+for i = 1:s
+     if  m11(i,:)==0
+         SC1(i,:)=0;
+     else SC1(i,:)=1;
+     end
+end
+
+UdfaldCHI=tabulate(SC1);  % 2018: Spearman + Chi
+
+
+%% 
+%%%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 4 %%%%%%%%%%%%%%%%%%%%%%
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m11=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m12=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+     
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+Stdr= 1;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL 
+u=-0.5;
+
+
+     % GENERATE DATA
+     Covmat=[Stdr.^2 p*Stdr*Stdh;p*Stdr*Stdh Stdh.^2];
+     
+     XX=exp(mvnrnd([0 0],Covmat,n));
+     RPL=XX(:,1)+u;
+     HPL=XX(:,2);
+     
+   
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);  
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+     [hii,pii,Ci]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.00050);
+     [hiii,piii,Cii]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.000200435);
+          
+     % STORE ESTIMATES IN mx
+     m13(i,:)=[hi];
+     m14(i,:)=[KS];
+     m15(i,:)=[p];
+     m16(i,:)=[pi];
+     m19(i,:)=[hii];
+     m20(i,:)=[hiii];
+     
+end 
+
+%Calculate probability of failure
+ 
+% Udfald KS a=0.2
+for i = 1:s
+     if m14(i,:)<=0.095
+         SK1(i,:)=0;
+     else SK1(i,:)=1;
+     end
+end
+
+% Udfald KS a=0.1
+for i = 1:s
+     if m14(i,:)<=0.108686
+         SK2(i,:)=0;
+     else SK2(i,:)=1;
+     end
+end
+
+% Udfald KS a=0.05
+for i = 1:s
+     if m14(i,:)<=0.121158
+         SK3(i,:)=0;
+     else SK3(i,:)=1;
+     end
+end
+
+UdfaldKS1=tabulate(SK1);  % 2018: Spearman + KS
+UdfaldKS2=tabulate(SK2);  % 2018: Spearman + KS
+UdfaldKS3=tabulate(SK3);  % 2018: Spearman + KS
+
+% Chi kritisk værdi=18
+for i = 1:s
+     if  m13(i,:)==0
+         SC1(i,:)=0;
+     else SC1(i,:)=1;
+     end
+end
+% Chi kritisk værdi=20
+for i = 1:s
+     if  m19(i,:)==0
+         SC2(i,:)=0;
+     else SC2(i,:)=1;
+     end
+end
+% Chi kritisk værdi=22
+for i = 1:s
+     if  m20(i,:)==0
+         SC3(i,:)=0;
+     else SC3(i,:)=1;
+     end
+end
+
+UdfaldCHI1=tabulate(SC1);  % 2018: Spearman + Chi
+UdfaldCHI2=tabulate(SC2);
+UdfaldCHI3=tabulate(SC3);
+
+
+
+%% Robusthedstest - BASELINE MODELLEN
+
+%%%%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 2 %%%%%%%%%%%%%%%%%%%%%%
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m6=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m7=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+m8=zeros(s,size(3,1));                      % (Sx2) vector to save KS estimates     
+m9=zeros(s,size(3,1));                      % (Sx2) vector to save Chi estimates
+m10=zeros(s,size(3,1));                      % (Sx2) vector to save Spearman estimates      
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+nr=200
+Stdr= 1;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL
+yh=.2;
+yr=.4;
+    
+
+     % GENERATE DATA
+     Covmat=[(nr+yr*(nr*nr-nr)) p*sqrt(nr+yr*(nr*nr-nr))*sqrt(nr+yh*(nr*nr-nr)); p*sqrt(nr+yr*(nr*nr-nr))*sqrt(nr+yh*(nr*nr-nr)) (nr+yh*(nr*nr-nr))];
+     
+     F=mvnrnd([0 0],Covmat,n);
+     RPL=F(:,1);
+     HPL=F(:,2);
+     UPL=RPL-HPL;
+
+     % ESTIMATION 2016 Test metrics
+     uU=arrayfun(@(i) mean(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     uH=arrayfun(@(i) mean(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     VU=arrayfun(@(i) var(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     VH=arrayfun(@(i) var(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     
+     meantest=abs(uU./sqrt(VH));
+     vartest=VU./VH;
+     
+     FailM=sum(meantest>=0.1);
+     FailV=sum(vartest>=0.2);
+    
+   
+     Fail1= sum(meantest(:)>=.1 & vartest(:)>=.2);
+     if Fail1 >4
+         A=1;
+     else A=0;
+     end 
+     
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);
+     Sp= corr(RPL,HPL,'Type','Spearman');   
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+          
+     % STORE ESTIMATES IN mx
+     m6(i,:)=[hi];
+     m7(i,:)=[FailM];
+     m8(i,:)=[KS];
+     m9(i,:)=[FailV];
+     m10(i,:)=[Sp];
+end 
+%%
+%Calculate probability of failure
+
+% 2016: Meantest + Vartest
+for i = 1:s
+    rowM=m7(i,:);
+    rowV=m9(i,:);
+     if rowM >= 4 || rowV >= 4
+         GL(i,:)=1;
+     else GL(i,:)=0;
+     end
+end
+
+ UdfaldGL=tabulate(GL);
+
+ 
+% Udfald SP + KS
+for i = 1:s
+     if m10(i,:) >= 0.75 && m8(i,:)<=0.095
+         SK(i,:)=0;
+     else SK(i,:)=1;
+     end
+end
+
+UdfaldKS=tabulate(SK);  % 2018: Spearman + KS
+
+
+% Udfald SP + Chi
+for i = 1:s
+     if m10(i,:) >= .75 && m6(i,:)==0
+         SC(i,:)=0;
+     else SC(i,:)=1;
+     end
+end
+
+UdfaldCHI=tabulate(SC);  % 2018: Spearman + Chi
+
+
+%% 
+%%%%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 2 %%%%%%%%%%%%%%%%%%%%%%
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m6=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m7=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+m8=zeros(s,size(3,1));                      % (Sx2) vector to save KS estimates     
+m9=zeros(s,size(3,1));                      % (Sx2) vector to save Chi estimates
+m10=zeros(s,size(3,1));                      % (Sx2) vector to save Spearman estimates      
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+nr=40;
+Stdr= 1;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL
+yh=.4;
+yr=.4;
+b=0.05;
+hedge=0.2;     
+
+     % GENERATE DATA
+     Covmat1=[(nr+yr*(nr*nr-nr)) p*sqrt(nr+yr*(nr*nr-nr))*sqrt(nr+yh*(nr*nr-nr)); p*sqrt(nr+yr*(nr*nr-nr))*sqrt(nr+yh*(nr*nr-nr)) (nr+yh*(nr*nr-nr))];
+     
+     F=mvnrnd([0 0],Covmat1,n);
+     e=mvnrnd([0 0], [1 0; 0 1],n);
+     Yl=F-b*e;
+     PnL=F-hedge*Yl;
+     RPL=PnL(:,1);
+     HPL=PnL(:,2);
+     UPL=RPL-HPL;
+
+     % ESTIMATION 2016 Test metrics
+     uU=arrayfun(@(i) mean(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     uH=arrayfun(@(i) mean(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     VU=arrayfun(@(i) var(UPL(i:i+21-1)),1:21:length(UPL)-21+1)';
+     VH=arrayfun(@(i) var(HPL(i:i+21-1)),1:21:length(HPL)-21+1)';
+     
+     meantest=abs(uU./sqrt(VH));
+     vartest=VU./VH;
+     
+     FailM=sum(meantest>=0.1);
+     FailV=sum(vartest>=0.2);
+    
+   
+     Fail1= sum(meantest(:)>=.1 & vartest(:)>=.2);
+     if Fail1 >4
+         A=1;
+     else A=0;
+     end 
+     
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);
+     Sp= corr(RPL,HPL,'Type','Spearman');   
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+          
+     % STORE ESTIMATES IN mx
+     m6(i,:)=[hi];
+     m7(i,:)=[FailM];
+     m8(i,:)=[KS];
+     m9(i,:)=[FailV];
+     m10(i,:)=[Sp];
+end 
+
+%Calculate probability of failure
+
+% 2016: Meantest + Vartest
+for i = 1:s
+    rowM=m7(i,:);
+    rowV=m9(i,:);
+     if rowM >= 4 || rowV >= 4
+         GL(i,:)=1;
+     else GL(i,:)=0;
+     end
+end
+
+ UdfaldGL=tabulate(GL);
+
+ 
+% Udfald SP + KS
+for i = 1:s
+     if m10(i,:) >= 0.75 && m8(i,:)<=0.095
+         SK(i,:)=0;
+     else SK(i,:)=1;
+     end
+end
+
+UdfaldKS=tabulate(SK);  % 2018: Spearman + KS
+
+
+% Udfald SP + Chi
+for i = 1:s
+     if m10(i,:) >= .75 && m6(i,:)==0
+         SC(i,:)=0;
+     else SC(i,:)=1;
+     end
+end
+
+UdfaldCHI=tabulate(SC);  % 2018: Spearman + Chi
+
+
+%%
+%%%%%%%%%%%%%%%%%% ANALYSESPØRGSMÅL 4 %%%%%%%%%%%%%%%%%%%%%%
+clear all; clc;
+
+s=10000;                                    % # replications  
+rng(1234);                                  % # Seed
+n=252;                                      % # observations (as before) 
+m11=zeros(s,size(3,1));                      % (Sx2) vector to save variancetest estimates     
+m12=zeros(s,size(3,1));                      % (Sx2) vector to save meantestvar estimates 
+     
+for i=1:s                                   % start loop  
+
+p = 0.95;                                      % # correlation
+nr=20;
+Stdr= 1;                                   % # Std.dev. RPL
+Stdh= 1;                                    % # Std.dev. HPL
+yh=.2;
+yr=0;
+    
+
+     % GENERATE DATA
+     Covmat1=[(nr+yr*(nr*nr-nr)) p*sqrt(nr+yr*(nr*nr-nr))*sqrt(nr+yh*(nr*nr-nr)); p*sqrt(nr+yr*(nr*nr-nr))*sqrt(nr+yh*(nr*nr-nr)) (nr+yh*(nr*nr-nr))];
+     
+     
+     XX=mvnrnd([0 0],Covmat1,n);
+     RPL=XX(:,1);
+     HPL=XX(:,2);
+     
+   
+     % ESTIMATION 2018 Test metrics
+     [h,p,KS] = kstest2(RPL,HPL,'tail','unequal','alpha',0.2);  
+     Y=quantile(HPL,[0 0.2 0.4 0.6 0.8 1]);    % Chi test - manually implemented
+     [hi,pi,C]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.0012);
+     [hii,pii,Ci]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.00050);
+     [hiii,piii,Cii]=chi2gof(RPL,'edges',Y,'Expected',[50 50 50 50 50],'alpha',0.000200435);
+          
+     % STORE ESTIMATES IN mx
+     m13(i,:)=[hi];
+     m14(i,:)=[KS];
+     m15(i,:)=[p];
+     m16(i,:)=[pi];
+     m19(i,:)=[hii];
+     m20(i,:)=[hiii];
+     
+end 
+
+%Calculate probability of failure
+ 
+% Udfald KS a=0.2
+for i = 1:s
+     if m14(i,:)<=0.095
+         SK1(i,:)=0;
+     else SK1(i,:)=1;
+     end
+end
+
+% Udfald KS a=0.1
+for i = 1:s
+     if m14(i,:)<=0.108686
+         SK2(i,:)=0;
+     else SK2(i,:)=1;
+     end
+end
+
+
+UdfaldKS1=tabulate(SK1);  % 2018: Spearman + KS
+UdfaldKS2=tabulate(SK2);  % 2018: Spearman + KS
+
+% Chi kritisk værdi=18
+for i = 1:s
+     if  m13(i,:)==0
+         SC1(i,:)=0;
+     else SC1(i,:)=1;
+     end
+end
+% Chi kritisk værdi=20
+for i = 1:s
+     if  m19(i,:)==0
+         SC2(i,:)=0;
+     else SC2(i,:)=1;
+     end
+end
+
+
+UdfaldCHI1=tabulate(SC1);  % 2018: Spearman + Chi
+UdfaldCHI2=tabulate(SC2);
